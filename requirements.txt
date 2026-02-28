@@ -1,0 +1,13 @@
+fastapi>=0.95
+uvicorn[standard]>=0.22
+SQLAlchemy>=1.4
+psycopg2-binary>=2.9
+pydantic>=1.10
+python-dotenv>=0.21
+
+# Optional: redis client for caching
+aioredis>=2.0.1
+alembic>=1.11
+passlib[bcrypt]>=1.7
+python-jose[cryptography]>=3.3.0
+gunicorn>=20.1

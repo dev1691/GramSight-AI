@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — GramSight AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="gs-topbar">
+    <div class="logo">GramSight <span class="accent">AI</span></div>
+    <nav>
+      <span id="userGreeting"></span>
+      <a id="logoutBtn" href="#">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard container">
+    <section id="farmerView" class="dashboard-grid" hidden>
+      <!-- Farmer UI injected by JS -->
+    </section>
+
+    <section id="adminView" class="dashboard-grid" hidden>
+      <!-- Admin UI injected by JS -->
+    </section>
+  </main>
+
+  <template id="farmerTemplate">
+    <div class="banner card">
+      <div class="banner-text">
+        <h2 id="farmerName">Hello, Farmer</h2>
+        <p id="villageName">Village: —</p>
+      </div>
+      <div class="banner-image"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card"> <h4>Risk Score</h4><div id="riskCard">--</div></div>
+      <div class="card"> <h4>Weather</h4><div id="weatherCard">--</div></div>
+      <div class="card"> <h4>Soil Health</h4><div id="soilCard">--</div></div>
+      <div class="card"> <h4>Market</h4><div id="marketCard">--</div></div>
+      <div class="card advisory"> <h4>Advisory</h4><div id="advisoryCard">--</div></div>
+    </div>
+  </template>
+
+  <template id="adminTemplate">
+    <div class="card">
+      <h3>Village Registration</h3>
+      <form id="villageForm">
+        <input id="v_name" placeholder="Village name" required />
+        <input id="v_state" placeholder="State" />
+        <input id="v_district" placeholder="District" />
+        <input id="v_lat" placeholder="Latitude" />
+        <input id="v_lon" placeholder="Longitude" />
+        <button type="submit" class="btn">Add Village</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Risk Overview</h3>
+      <canvas id="riskChart" height="120"></canvas>
+    </div>
+  </template>
+
+  <script type="module" src="../js/dashboard.js"></script>
+</body>
+</html>

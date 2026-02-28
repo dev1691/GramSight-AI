@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h2>Admin Dashboard</h2>
+    <a href="index.html">← Back</a>
+  </header>
+  <main class="container">
+    <section id="villages" class="card">
+      <h3>Villages</h3>
+      <table id="villageTable"><thead><tr><th>ID</th><th>Name</th><th>Risk</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <section id="highRisk" class="card">
+      <h3>High Risk Villages</h3>
+      <div id="highRiskList">Loading...</div>
+    </section>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

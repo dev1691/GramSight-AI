@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Farmer Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h2>Farmer Dashboard</h2>
+    <a href="index.html">← Back</a>
+  </header>
+  <main class="container">
+    <section id="risk" class="card">
+      <h3>Risk Score</h3>
+      <div id="riskScore" class="risk-score">--</div>
+      <div id="riskExplanation" class="muted"></div>
+    </section>
+
+    <section id="weather" class="card">
+      <h3>Weather</h3>
+      <div id="weatherData">Loading...</div>
+    </section>
+
+    <section id="market" class="card">
+      <h3>Market</h3>
+      <div id="marketData">Loading...</div>
+    </section>
+
+    <section id="advisory" class="card">
+      <h3>Advisory</h3>
+      <div id="advisoryText">Loading...</div>
+    </section>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/farmer.js"></script>
+</body>
+</html>

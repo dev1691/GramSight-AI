@@ -5,9 +5,20 @@ psycopg2-binary>=2.9
 pydantic>=1.10
 python-dotenv>=0.21
 
+# HTTP client used by some sync helpers
+requests>=2.31.0
+
 # Optional: redis client for caching
 aioredis>=2.0.1
 alembic>=1.11
 passlib[bcrypt]>=1.7
 python-jose[cryptography]>=3.3.0
 gunicorn>=20.1
+redis>=4.7.0
+boto3>=1.29.0
+botocore>=1.36.0
+mangum>=0.14.0
+httpx>=0.24.1
+asyncpg>=0.27.0
+SQLAlchemy[asyncio]>=2.0.0
+apscheduler>=3.10.1

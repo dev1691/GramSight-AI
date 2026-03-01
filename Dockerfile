@@ -14,8 +14,10 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy application code
-COPY . /app
+# Copy backend_service code
+COPY backend_service /app/backend_service
+COPY alembic /app/alembic
+COPY scripts /app/scripts
 
 # Create non-root user
 RUN groupadd -r gramsight && useradd -r -g gramsight gramsight
@@ -24,5 +26,5 @@ USER gramsight
 
 EXPOSE 8000
 
-# Use Gunicorn with Uvicorn workers for production
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "app.main:app", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+# Default to uvicorn serving the backend_service package
+CMD ["uvicorn", "backend_service.main:app", "--host", "0.0.0.0", "--port", "8000"]

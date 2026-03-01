@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.services.auth_service import get_user_by_email, create_user
-from app.models.users import RoleEnum
+from backend_service.services.auth_service import get_user_by_email, create_user
+from backend_service.models import RoleEnum
 
 
 def main():

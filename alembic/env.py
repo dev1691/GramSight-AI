@@ -9,9 +9,8 @@ from alembic import context
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import app settings and metadata
-from app.config import get_settings
-from app.database import Base
+# Use backend_service settings and metadata
+from backend_service.database import Base, DATABASE_URL
 
 config = context.config
 
@@ -19,10 +18,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = get_settings()
-
-# Set SQLAlchemy URL from settings
-config.set_main_option('sqlalchemy.url', settings.database_url)
+# Set SQLAlchemy URL from backend_service.database
+config.set_main_option('sqlalchemy.url', DATABASE_URL)
 
 target_metadata = Base.metadata
 

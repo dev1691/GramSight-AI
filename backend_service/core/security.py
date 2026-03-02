@@ -5,10 +5,10 @@ from typing import Optional, Dict, Any
 from passlib.context import CryptContext
 from jose import jwt
 
+from backend_service.config import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = os.getenv('SECRET_KEY', '')
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '60'))
 ALGORITHM = 'HS256'
 
 

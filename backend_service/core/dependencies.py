@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -6,7 +7,7 @@ from jose import JWTError, jwt
 
 from backend_service.services.auth_service import get_user_by_email
 from backend_service.models import RoleEnum
-from backend_service.core.security import SECRET_KEY
+from backend_service.config import SECRET_KEY
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -28,7 +29,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         _raise_401()
 
-    user = get_user_by_email(email)
+    # Run the sync DB call in a thread to avoid blocking the event loop
+    user = await asyncio.to_thread(get_user_by_email, email)
     if not user:
         _raise_401()
     return user

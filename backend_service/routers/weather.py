@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from backend_service.database import get_db
 from backend_service.services.weather_service import fetch_weather_for_city, parse_and_create_weather
 from backend_service.schemas import WeatherOut
+from backend_service.core.dependencies import get_current_active_user
 import logging
 
 from backend_service.database_async import get_async_db
@@ -14,7 +15,7 @@ logger = logging.getLogger('backend')
 
 
 @router.post('/fetch', response_model=WeatherOut)
-def fetch_weather(city: str, db: Session = Depends(get_db)):
+def fetch_weather(city: str, db: Session = Depends(get_db), _user=Depends(get_current_active_user)):
     try:
         raw = fetch_weather_for_city(city)
         saved = parse_and_create_weather(db, city, raw)
@@ -25,7 +26,7 @@ def fetch_weather(city: str, db: Session = Depends(get_db)):
 
 
 @router.post('/ingest')
-async def ingest(village_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_async_db)):
+async def ingest(village_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_async_db), _user=Depends(get_current_active_user)):
     try:
         rec = await ingest_weather(db, village_id, lat, lon)
         return rec

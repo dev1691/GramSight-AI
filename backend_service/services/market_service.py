@@ -1,4 +1,4 @@
-from models import MarketPrice
+from backend_service.models import MarketPrice
 from datetime import datetime
 
 def create_market_entry(db, commodity: str, price: float, market_name: str = None):

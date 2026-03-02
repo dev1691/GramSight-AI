@@ -1,15 +1,20 @@
 __pycache__/
+*.py[cod]
 .venv/
 venv/
 env/
 .env
 .env.*
-*.pyc
-*.pyo
-*.pyd
 build/
 dist/
 .pytest_cache/
 .git/
+.gitignore
 node_modules/
 __MACOSX/
+
+# Not needed by backend/worker Dockerfile
+frontend/
+admin_service/
+*.md
+LICENSE

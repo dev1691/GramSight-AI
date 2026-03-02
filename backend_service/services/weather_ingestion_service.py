@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
@@ -25,11 +25,12 @@ async def fetch_weather(lat: float, lon: float):
         return resp.json()
 
 
-async def ingest_weather(db: AsyncSession, village_id, lat: float, lon: float):
+async def ingest_weather(db: AsyncSession, village_id, lat: float, lon: float,
+                         city_name: str = 'unknown', *, auto_commit: bool = True):
     try:
         raw = await fetch_weather(lat, lon)
-    except Exception as e:
-        logger.exception('OpenWeather fetch failed')
+    except Exception:
+        logger.exception('OpenWeather fetch failed for village %s', village_id)
         raise
 
     current = raw.get('current', {})
@@ -47,24 +48,48 @@ async def ingest_weather(db: AsyncSession, village_id, lat: float, lon: float):
 
     rainfall = today.get('rain') or 0.0
     uvi = today.get('uvi')
-    min_temp = today.get('temp', {}).get('min') if isinstance(today.get('temp'), dict) else None
-    max_temp = today.get('temp', {}).get('max') if isinstance(today.get('temp'), dict) else None
+
+    # ── Data validation ──────────────────────────────────────────────
+    # Reject clearly invalid readings (sensor errors / API glitches)
+    if temperature is None or not (-60 <= temperature <= 60):
+        logger.warning('Invalid temperature %.2f for village %s — skipping',
+                       temperature if temperature else 0, village_id)
+        return None
+    if humidity is not None and not (0 <= humidity <= 100):
+        logger.warning('Invalid humidity %.1f for village %s — clamping', humidity, village_id)
+        humidity = max(0, min(100, humidity))
+    if rainfall is not None and rainfall < 0:
+        rainfall = 0.0
+
+    # ── Deduplication: skip if a record already exists within the last hour
+    now_utc = datetime.now(timezone.utc)
+    one_hour_ago = now_utc - timedelta(hours=1)
+    dup_q = await db.execute(
+        select(WeatherData.id).where(
+            WeatherData.village_id == village_id,
+            WeatherData.recorded_at >= one_hour_ago,
+        ).limit(1)
+    )
+    if dup_q.scalars().first() is not None:
+        logger.debug('Skipping weather for village %s — recent record exists', village_id)
+        return None
 
     rec = WeatherData(
         village_id=village_id,
-        city=None,
-        temperature=temperature or 0.0,
-        humidity=humidity or 0.0,
+        city=city_name,
+        temperature=round(temperature, 2),
+        humidity=round(humidity, 1) if humidity else 0.0,
         pressure=pressure,
         wind_speed=wind_speed,
-        rainfall=rainfall,
+        rainfall=round(rainfall, 1),
         uvi=uvi,
         description=description,
-        recorded_at=datetime.utcnow()
+        recorded_at=now_utc,
     )
     db.add(rec)
-    await db.commit()
-    await db.refresh(rec)
+    if auto_commit:
+        await db.commit()
+        await db.refresh(rec)
     return rec
 
 
@@ -77,12 +102,15 @@ async def ingest_weather_for_all_villages():
         villages = res.scalars().all()
         results = []
         for v in villages:
-            # if coordinates available
             if getattr(v, 'latitude', None) is None or getattr(v, 'longitude', None) is None:
                 continue
             try:
-                r = await ingest_weather(session, v.id, float(v.latitude), float(v.longitude))
-                results.append(r)
+                r = await ingest_weather(
+                    session, v.id, float(v.latitude), float(v.longitude),
+                    city_name=v.name,
+                )
+                if r is not None:
+                    results.append(r)
             except Exception:
-                logging.exception(f'Failed to ingest weather for village {v.id}')
+                logger.exception('Failed to ingest weather for village %s (%s)', v.name, v.id)
     return results

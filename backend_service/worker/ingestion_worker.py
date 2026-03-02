@@ -13,6 +13,7 @@ logger = logging.getLogger('ingestion.worker')
 async def run_weather_job():
     logger.info('Starting scheduled weather ingestion')
     results = await weather_ingestion_service.ingest_weather_for_all_villages()
+    logger.info('Weather ingestion complete — %d new records', len(results))
     # Optionally cache latest weather per village
     for r in results:
         try:
@@ -30,6 +31,7 @@ async def run_weather_job():
 async def run_market_job():
     logger.info('Starting scheduled market ingestion')
     results = await market_ingestion_service.ingest_market_for_all_villages()
+    logger.info('Market ingestion complete — %d new records', len(results))
     # Optionally cache summary per village
     for r in results:
         try:
@@ -44,19 +46,24 @@ async def run_market_job():
 
 
 def start_scheduler():
-    loop = asyncio.get_event_loop()
-    scheduler = AsyncIOScheduler(event_loop=loop)
-    # run every 15 minutes
-    scheduler.add_job(lambda: asyncio.ensure_future(run_weather_job()), IntervalTrigger(minutes=15), id='weather')
-    scheduler.add_job(lambda: asyncio.ensure_future(run_market_job()), IntervalTrigger(minutes=60), id='market')
+    scheduler = AsyncIOScheduler()
+    # Schedule coroutine functions directly — AsyncIOScheduler handles the event loop
+    scheduler.add_job(run_weather_job, IntervalTrigger(minutes=15), id='weather', max_instances=1)
+    scheduler.add_job(run_market_job, IntervalTrigger(minutes=60), id='market', max_instances=1)
     scheduler.start()
     logger.info('Scheduler started')
 
 
+async def _main():
+    start_scheduler()
+    # Keep the event loop alive forever
+    while True:
+        await asyncio.sleep(3600)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    start_scheduler()
     try:
-        asyncio.get_event_loop().run_forever()
+        asyncio.run(_main())
     except (KeyboardInterrupt, SystemExit):
         logger.info('Worker stopped')

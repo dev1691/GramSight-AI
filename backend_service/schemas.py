@@ -22,10 +22,7 @@ class MarketOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
-
-    class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class WeatherOut(BaseModel):
@@ -42,7 +39,4 @@ class WeatherOut(BaseModel):
     recorded_at: datetime
 
     class Config:
-        orm_mode = True
-
-    class Config:
-        orm_mode = True
+        from_attributes = True

@@ -49,6 +49,16 @@ def admin_create_user(payload: UserCreate):
     return {"id": str(user.id), "email": user.email, "role": user.role}
 
 
+@router.post("/register", response_model=TokenResponse)
+def register(payload: UserCreate):
+    try:
+        user = create_user(payload.email, payload.password, role=payload.role)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    access_token = create_access_token({"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @router.get("/me", response_model=UserOut)
 def me(current_user=Depends(get_current_active_user)):
     return {"id": str(current_user.id), "email": current_user.email, "role": current_user.role}

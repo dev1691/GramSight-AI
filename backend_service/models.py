@@ -1,7 +1,9 @@
 import uuid
-from sqlalchemy import Column, String, Float, DateTime, Index
+from enum import Enum as PyEnum
+from sqlalchemy import Column, String, Float, DateTime, Index, Integer, JSON, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship
 from backend_service.database import Base
 
 
@@ -9,7 +11,7 @@ class WeatherData(Base):
     __tablename__ = 'weather_data'
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     village_id = Column(PG_UUID(as_uuid=True), index=True, nullable=True)
-    city = Column(String(128), index=True, nullable=False)
+    city = Column(String(128), index=True, nullable=True)
     temperature = Column(Float, nullable=False)
     humidity = Column(Float, nullable=False)
     pressure = Column(Float, nullable=True)
@@ -36,9 +38,6 @@ class MarketPrice(Base):
 Index('ix_market_prices_commodity_arrival', MarketPrice.commodity, MarketPrice.arrival_date)
 
 
-from sqlalchemy import Integer, JSON
-
-
 class RiskScore(Base):
     __tablename__ = 'risk_scores'
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
@@ -58,11 +57,6 @@ class AiReport(Base):
     report_type = Column(String(32), nullable=False)
     content = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-
-
-from enum import Enum as PyEnum
-from sqlalchemy import Boolean, ForeignKey
-from sqlalchemy.orm import relationship
 
 
 class RoleEnum(PyEnum):
@@ -87,6 +81,8 @@ class Village(Base):
     __tablename__ = 'villages'
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     name = Column(String(255), nullable=False, unique=True, index=True)
+    district = Column(String(128), nullable=True)
+    crop = Column(String(128), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
 
@@ -98,3 +94,6 @@ class SoilHealth(Base):
     ph = Column(Float, nullable=True)
     organic_matter = Column(Float, nullable=True)
     nitrogen = Column(Float, nullable=True)
+    phosphorus = Column(Float, nullable=True)
+    potassium = Column(Float, nullable=True)
+    moisture = Column(Float, nullable=True)

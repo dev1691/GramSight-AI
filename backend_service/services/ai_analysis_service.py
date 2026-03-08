@@ -50,22 +50,31 @@ def _get_bedrock_client():
     return _bedrock_client
 
 
-def _build_titan_body(prompt_text: str) -> str:
-    """Build a properly structured Titan model request body."""
+def _build_request_body(prompt_text: str) -> str:
+    """Build a Nova-compatible request body (Messages API format)."""
     return json.dumps({
-        "inputText": prompt_text,
-        "textGenerationConfig": {
-            "maxTokenCount": 1024,
+        "messages": [
+            {"role": "user", "content": [{"text": prompt_text}]}
+        ],
+        "inferenceConfig": {
+            "maxTokens": 1024,
             "temperature": 0.3,
             "topP": 0.9,
         }
     })
 
 
-def _parse_titan_response(raw_body: str) -> Optional[str]:
-    """Parse Titan model response."""
+def _parse_model_response(raw_body: str) -> Optional[str]:
+    """Parse Nova model response."""
     try:
         data = json.loads(raw_body)
+        # Nova Messages API response format
+        output = data.get('output', {})
+        message = output.get('message', {})
+        content = message.get('content', [])
+        if content:
+            return content[0].get('text', '')
+        # Fallback: try Titan format
         results = data.get('results', [])
         if results:
             return results[0].get('outputText', '')
@@ -74,12 +83,12 @@ def _parse_titan_response(raw_body: str) -> Optional[str]:
         return raw_body
 
 
-async def _invoke_bedrock(prompt: str, model: str = 'amazon.titan-text-lite-v2:0', timeout: int = 30) -> Optional[str]:
+async def _invoke_bedrock(prompt: str, model: str = 'amazon.nova-micro-v1:0', timeout: int = 30) -> Optional[str]:
     """Invoke Bedrock in a thread to avoid blocking the event loop. Includes latency logging."""
 
     def call():
         client = _get_bedrock_client()
-        body = _build_titan_body(prompt)
+        body = _build_request_body(prompt)
         response = client.invoke_model(body=body, modelId=model, contentType='application/json', accept='application/json')
         resp_body = response.get('body')
         if hasattr(resp_body, 'read'):
@@ -91,7 +100,7 @@ async def _invoke_bedrock(prompt: str, model: str = 'amazon.titan-text-lite-v2:0
         raw = await asyncio.wait_for(asyncio.to_thread(call), timeout=timeout)
         elapsed_ms = (time.perf_counter() - start) * 1000
         logger.info("bedrock_latency_ms=%.1f model=%s prompt_version=%s", elapsed_ms, model, PROMPT_VERSION)
-        return _parse_titan_response(raw) if raw else None
+        return _parse_model_response(raw) if raw else None
     except asyncio.TimeoutError:
         logger.error('Bedrock call timed out after %ds', timeout)
     except Exception:

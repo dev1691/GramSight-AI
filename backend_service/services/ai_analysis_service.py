@@ -74,7 +74,7 @@ def _parse_titan_response(raw_body: str) -> Optional[str]:
         return raw_body
 
 
-async def _invoke_bedrock(prompt: str, model: str = 'amazon.titan-text-lite-v1', timeout: int = 30) -> Optional[str]:
+async def _invoke_bedrock(prompt: str, model: str = 'amazon.titan-text-lite-v2:0', timeout: int = 30) -> Optional[str]:
     """Invoke Bedrock in a thread to avoid blocking the event loop. Includes latency logging."""
 
     def call():

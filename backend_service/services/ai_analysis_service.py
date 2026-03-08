@@ -226,3 +226,163 @@ async def generate_farmer_analysis(farmer_id: UUID) -> Dict[str, Any]:
         await session.commit()
 
     return parsed
+
+
+async def generate_farmland_analysis(farmland, db) -> Dict[str, Any]:
+    """Generate AI insight for a specific farmland using farm registry + weather + market data."""
+    from backend_service.models import WeatherData, MarketPrice, Village
+    from sqlalchemy import desc
+
+    # Gather weather context — run sync ORM queries in a thread
+    def _gather_context():
+        weather_data = None
+        market_data = []
+        village_name = None
+        if farmland.village_id:
+            village = db.query(Village).filter(Village.id == farmland.village_id).first()
+            village_name = village.name if village else None
+
+            weather_row = (
+                db.query(WeatherData)
+                .filter(WeatherData.village_id == farmland.village_id)
+                .order_by(desc(WeatherData.recorded_at))
+                .first()
+            )
+            if weather_row:
+                weather_data = {
+                    "temperature": weather_row.temperature,
+                    "humidity": weather_row.humidity,
+                    "rainfall": weather_row.rainfall,
+                    "description": weather_row.description,
+                }
+
+            market_rows = (
+                db.query(MarketPrice)
+                .filter(MarketPrice.village_id == farmland.village_id)
+                .order_by(desc(MarketPrice.created_at))
+                .limit(7)
+                .all()
+            )
+            market_data = [
+                {"commodity": m.commodity, "modal_price": m.modal_price,
+                 "arrival_date": str(m.arrival_date) if m.arrival_date else None}
+                for m in market_rows
+            ]
+        return village_name, weather_data, market_data
+
+    village_name, weather_data, market_data = await asyncio.to_thread(_gather_context)
+
+    prompt_data = {
+        "farmland": {
+            "land_name": farmland.land_name,
+            "total_acres": farmland.total_acres,
+            "soil_type": farmland.soil_type,
+            "irrigation_type": farmland.irrigation_type,
+            "crop_type": farmland.crop_type,
+            "sowing_date": str(farmland.sowing_date) if farmland.sowing_date else None,
+            "harvest_date": str(farmland.harvest_date) if farmland.harvest_date else None,
+            "village": village_name,
+        },
+        "weather": weather_data or {},
+        "market": market_data,
+    }
+
+    system_prompt = (
+        "You are an agricultural intelligence expert AI. "
+        "Analyze the following farmland data including weather and market context. "
+        "Return ONLY valid JSON with these exact keys: "
+        "crop_suitability, weather_risk, price_opportunity, irrigation_recommendation, "
+        "harvest_timing, risk_score (0-100 number), risk_level (Low/Moderate/High/Critical), "
+        "recommendations (array of strings), summary (string). "
+        "Do not include any text outside the JSON object."
+    )
+    full_prompt = system_prompt + "\n\nInput data:\n" + json.dumps(prompt_data, default=str)
+
+    result_text = await _invoke_bedrock(full_prompt)
+    if not result_text:
+        # Fallback: generate deterministic insight
+        return _farmland_fallback_insight(farmland, weather_data, market_data)
+
+    parsed = None
+    try:
+        text = result_text.strip()
+        if '```json' in text:
+            text = text.split('```json')[1].split('```')[0].strip()
+        elif '```' in text:
+            text = text.split('```')[1].split('```')[0].strip()
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, IndexError):
+        parsed = _farmland_fallback_insight(farmland, weather_data, market_data)
+
+    # Ensure all required keys
+    required = ['crop_suitability', 'weather_risk', 'price_opportunity',
+                'irrigation_recommendation', 'harvest_timing', 'risk_score',
+                'risk_level', 'recommendations', 'summary']
+    for k in required:
+        if k not in parsed:
+            parsed[k] = 'Not available'
+    parsed['prompt_version'] = PROMPT_VERSION
+    return parsed
+
+
+def _farmland_fallback_insight(farmland, weather_data, market_data) -> dict:
+    """Deterministic fallback when Bedrock is unavailable."""
+    crop = farmland.crop_type or 'General'
+    temp = weather_data.get('temperature', 28) if weather_data else 28
+    humidity = weather_data.get('humidity', 60) if weather_data else 60
+    rainfall = weather_data.get('rainfall', 0) if weather_data else 0
+
+    # Simple risk computation
+    risk = 25.0
+    recs = []
+
+    if temp > 35:
+        risk += 15
+        recs.append(f'High temperatures ({temp}°C) detected. Consider heat-resistant {crop} varieties.')
+    if temp < 10:
+        risk += 15
+        recs.append(f'Low temperatures ({temp}°C) may affect {crop} growth. Consider frost protection.')
+    if humidity > 85:
+        risk += 10
+        recs.append('High humidity increases fungal disease risk. Apply preventive fungicide.')
+    if rainfall > 50:
+        risk += 10
+        recs.append('Heavy rainfall expected. Ensure proper drainage to prevent waterlogging.')
+    elif rainfall < 5:
+        risk += 10
+        recs.append('Low rainfall forecast. Increase irrigation frequency.')
+
+    if market_data:
+        prices = [m.get('modal_price', 0) for m in market_data if m.get('modal_price')]
+        if prices and len(prices) >= 2:
+            trend = prices[0] - prices[-1]
+            if trend > 0:
+                recs.append(f'{crop} prices trending up (₹{prices[0]:,.0f}/quintal). Good time to plan harvest.')
+            else:
+                recs.append(f'{crop} prices declining. Consider storage or alternative markets.')
+                risk += 10
+
+    if not recs:
+        recs.append(f'Conditions are generally favorable for {crop} cultivation.')
+        recs.append('Continue current farming practices and monitor weather updates.')
+
+    irrigation = farmland.irrigation_type or 'Unknown'
+    if irrigation.lower() in ('rainfed', 'none', 'unknown'):
+        recs.append('Consider installing drip irrigation for water efficiency and yield improvement.')
+
+    risk = max(0, min(100, risk))
+    level = 'Low' if risk <= 30 else ('Moderate' if risk <= 60 else ('High' if risk <= 80 else 'Critical'))
+
+    return {
+        'crop_suitability': f'{crop} is suitable for the current soil and weather conditions.' if risk < 60 else f'{crop} faces moderate challenges in current conditions.',
+        'weather_risk': f'Temperature: {temp}°C, Humidity: {humidity}%, Rainfall: {rainfall}mm',
+        'price_opportunity': f'Market data available for {len(market_data)} recent entries.' if market_data else 'No recent market data available.',
+        'irrigation_recommendation': f'Current: {irrigation}. Drip irrigation recommended for optimal water usage.' if irrigation.lower() in ('rainfed', 'none', 'unknown') else f'Current {irrigation} system is adequate.',
+        'harvest_timing': f'Planned harvest: {farmland.harvest_date.strftime("%B %Y") if farmland.harvest_date else "Not specified"}.',
+        'risk_score': round(risk, 1),
+        'risk_level': level,
+        'recommendations': recs,
+        'summary': f'{crop} on {farmland.total_acres} acres — Risk: {level} ({risk:.0f}%). {recs[0]}',
+        'prompt_version': PROMPT_VERSION,
+        'is_fallback': True,
+    }

@@ -18,7 +18,11 @@ from backend_service.routers.risk import router as risk_router
 from backend_service.routers.ai import router as ai_router
 from backend_service.routers.auth import router as auth_router
 from backend_service.routers.farmer import router as farmer_router
+from backend_service.routers.farmland import router as farmland_router
 from backend_service.routers.demo import router as demo_router
+
+# True when running inside AWS Lambda
+IS_LAMBDA = bool(os.getenv('AWS_LAMBDA_FUNCTION_NAME'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,10 +48,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        await asyncio.to_thread(Base.metadata.create_all, bind=engine)
-    except Exception:
-        logger.exception('Could not create DB tables at startup')
+    # In Lambda, Alembic handles migrations — skip the blocking create_all.
+    if not IS_LAMBDA:
+        try:
+            await asyncio.to_thread(Base.metadata.create_all, bind=engine)
+        except Exception:
+            logger.exception('Could not create DB tables at startup')
     yield
 
 
@@ -70,6 +76,7 @@ app.include_router(risk_router)
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(farmer_router)
+app.include_router(farmland_router)
 app.include_router(demo_router)
 
 
@@ -79,12 +86,17 @@ async def health():
     checks = {'db': 'ok', 'redis': 'ok'}
     try:
         from sqlalchemy import text
-        await asyncio.to_thread(lambda: engine.connect().execute(text('SELECT 1')))
+
+        def _check_db():
+            with engine.connect() as conn:
+                conn.execute(text('SELECT 1'))
+
+        await asyncio.to_thread(_check_db)
     except Exception as exc:
         checks['db'] = str(exc)
     try:
         from backend_service.cache import _get_sync
-        _get_sync().ping()
+        await asyncio.to_thread(_get_sync().ping)
     except Exception as exc:
         checks['redis'] = str(exc)
 
@@ -95,9 +107,11 @@ async def health():
 # AWS Lambda compatibility using Mangum. When running in Lambda, the handler
 # variable can be used by the Lambda runtime. For containerized uvicorn runs
 # this has no effect.
+#
+# Lambda handler configuration:  backend_service.main.handler
 try:
     from mangum import Mangum
 
-    handler = Mangum(app)
-except Exception:
+    handler = Mangum(app, lifespan="auto")
+except ImportError:
     handler = None

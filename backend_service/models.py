@@ -97,3 +97,28 @@ class SoilHealth(Base):
     phosphorus = Column(Float, nullable=True)
     potassium = Column(Float, nullable=True)
     moisture = Column(Float, nullable=True)
+
+
+class Farmland(Base):
+    __tablename__ = 'farmlands'
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+    farmer_id = Column(PG_UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    village_id = Column(PG_UUID(as_uuid=True), ForeignKey('villages.id'), nullable=True, index=True)
+    land_name = Column(String(255), nullable=False)
+    total_acres = Column(Float, nullable=False)
+    soil_type = Column(String(128), nullable=True)
+    irrigation_type = Column(String(128), nullable=True)
+    crop_type = Column(String(128), nullable=True)
+    sowing_date = Column(DateTime(timezone=True), nullable=True)
+    harvest_date = Column(DateTime(timezone=True), nullable=True)
+    geo_lat = Column(Float, nullable=True)
+    geo_lng = Column(Float, nullable=True)
+    notes = Column(String(1024), nullable=True)
+    risk_score = Column(Float, nullable=True)
+    risk_level = Column(String(32), nullable=True)
+    ai_insight = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    farmer = relationship('User', backref='farmlands')
+    village = relationship('Village', backref='farmlands')

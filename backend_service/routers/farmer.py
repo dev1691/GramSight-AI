@@ -1,4 +1,5 @@
 """Farmer-facing read endpoints consumed by the React frontend."""
+import asyncio
 import logging
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -41,12 +42,16 @@ async def village_risk(
         return {"risk": cached}
 
     # Check for stored risk score before calculating dynamically
-    stored = (
-        db.query(RiskScore)
-        .filter(RiskScore.village_id == village_id)
-        .order_by(desc(RiskScore.calculated_at))
-        .first()
-    )
+    # Wrap sync ORM call in to_thread to avoid blocking the event loop
+    def _fetch_stored():
+        return (
+            db.query(RiskScore)
+            .filter(RiskScore.village_id == village_id)
+            .order_by(desc(RiskScore.calculated_at))
+            .first()
+        )
+
+    stored = await asyncio.to_thread(_fetch_stored)
     if stored:
         res = {
             "score": stored.score,
@@ -194,13 +199,18 @@ async def village_advisory(
         return {"items": recs if recs else ["AI analysis temporarily unavailable"]}
 
     # Check for stored advisory report in DB
+    # Wrap sync ORM call in to_thread to avoid blocking the event loop
     from backend_service.models import AiReport
-    report = (
-        db.query(AiReport)
-        .filter(AiReport.village_id == village_id, AiReport.report_type == 'advisory')
-        .order_by(desc(AiReport.created_at))
-        .first()
-    )
+
+    def _fetch_report():
+        return (
+            db.query(AiReport)
+            .filter(AiReport.village_id == village_id, AiReport.report_type == 'advisory')
+            .order_by(desc(AiReport.created_at))
+            .first()
+        )
+
+    report = await asyncio.to_thread(_fetch_report)
     if report and isinstance(report.content, dict):
         items = report.content.get('items', [])
         if items:

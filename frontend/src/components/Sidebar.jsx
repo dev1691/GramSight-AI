@@ -7,15 +7,17 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import LandscapeIcon from '@mui/icons-material/Landscape';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AuthContext from '../context/AuthContext';
 
 const FARMER_NAV = [
-  { label: 'Farmer Dashboard', icon: <DashboardIcon />, path: '/dashboard/farmer' },
+  { label: 'Farm Overview', icon: <DashboardIcon />, path: '/dashboard/farmer' },
+  { label: 'My Farmlands', icon: <LandscapeIcon />, path: '/dashboard/farmlands' },
 ];
 
 const ADMIN_NAV = [
-  { label: 'Admin Dashboard', icon: <AdminPanelSettingsIcon />, path: '/dashboard/admin' },
+  { label: 'District Overview', icon: <AdminPanelSettingsIcon />, path: '/dashboard/admin' },
 ];
 
 export default function Sidebar({ width, mobileOpen, onClose, isMobile }) {

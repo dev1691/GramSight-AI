@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import FarmerDashboard from './pages/FarmerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import MyFarmlands from './pages/MyFarmlands';
 import DashboardLayout from './components/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthContext from './context/AuthContext';
@@ -31,6 +32,7 @@ export default function App() {
       >
         <Route index element={<DashboardRedirect />} />
         <Route path="farmer" element={<FarmerDashboard />} />
+        <Route path="farmlands" element={<MyFarmlands />} />
         <Route path="admin" element={<AdminDashboard />} />
       </Route>
 

@@ -19,13 +19,18 @@ COPY backend_service /app/backend_service
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 COPY scripts /app/scripts
+COPY entrypoint.sh /app/entrypoint.sh
 
 # Create non-root user
 RUN groupadd -r gramsight && useradd -r -g gramsight gramsight
+RUN chmod +x /app/entrypoint.sh
 RUN chown -R gramsight:gramsight /app
 USER gramsight
 
 EXPOSE 8000
+
+# Run Alembic migrations on startup, then hand off to CMD
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default to uvicorn serving the backend_service package
 CMD ["uvicorn", "backend_service.main:app", "--host", "0.0.0.0", "--port", "8000"]

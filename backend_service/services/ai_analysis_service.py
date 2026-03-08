@@ -29,23 +29,11 @@ def _get_bedrock_client():
         region = os.getenv('AWS_REGION', 'us-east-1')
         cfg = Config(read_timeout=30, connect_timeout=10, retries={'max_attempts': 2})
 
-        bedrock_api_key = os.getenv('BEDROCK_API_KEY', '')
         aws_key = os.getenv('AWS_ACCESS_KEY_ID', '')
         aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY', '')
 
-        if bedrock_api_key:
-            # Use Bedrock API Key authentication
-            from botocore.auth import SigV4Auth
-            _bedrock_client = boto3.client(
-                'bedrock-runtime',
-                region_name=region,
-                config=cfg,
-                endpoint_url=f'https://bedrock-runtime.{region}.amazonaws.com',
-                aws_access_key_id=bedrock_api_key[:20] if len(bedrock_api_key) > 20 else bedrock_api_key,
-                aws_secret_access_key=bedrock_api_key,
-            )
-        elif aws_key and aws_secret:
-            # Use IAM credentials
+        if aws_key and aws_secret:
+            # Use explicit IAM credentials from env
             _bedrock_client = boto3.client(
                 'bedrock-runtime',
                 region_name=region,
@@ -53,9 +41,11 @@ def _get_bedrock_client():
                 aws_access_key_id=aws_key,
                 aws_secret_access_key=aws_secret,
             )
+            logger.info("Bedrock client created with explicit IAM credentials")
         else:
-            # Fall back to default credential chain (instance role, env, etc.)
+            # Fall back to default credential chain (EC2 instance role, env, etc.)
             _bedrock_client = boto3.client('bedrock-runtime', region_name=region, config=cfg)
+            logger.info("Bedrock client created with default credential chain")
 
     return _bedrock_client
 

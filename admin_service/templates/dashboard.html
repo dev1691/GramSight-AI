@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="row">
+    <div class="col-md-3">
+      <div class="card p-3 mb-3">
+        <h5>Total Weather</h5>
+        <h3>{{ totals.weather }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 mb-3">
+        <h5>Total Market</h5>
+        <h3>{{ totals.market }}</h3>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card p-3 mb-3">
+        <h5>Latest Weather</h5>
+        {% if latest_weather %}
+          <div>{{ latest_weather.city or '—' }} — {{ latest_weather.temperature }} °C at {{ latest_weather.recorded_at }}</div>
+        {% else %}
+          <div>No data</div>
+        {% endif %}
+      </div>
+      <div class="card p-3">
+        <h5>Latest Market</h5>
+        {% if latest_market %}
+          <div>{{ latest_market.commodity }} — ₹{{ latest_market.modal_price }} at {{ latest_market.created_at }}</div>
+        {% else %}
+          <div>No data</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

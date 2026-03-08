@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h3>Weather Data</h3>
+  <form class="row g-2 mb-3">
+    <div class="col-auto">
+      <input class="form-control" name="city" placeholder="City" value="{{ request.query_params.get('city','') }}" />
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-primary">Filter</button>
+    </div>
+  </form>
+  <table class="table table-striped">
+    <thead><tr><th>City</th><th>Temp</th><th>Humidity</th><th>Rainfall</th><th>Recorded At</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.city or '—' }}</td>
+          <td>{{ r.temperature }}</td>
+          <td>{{ r.humidity }}</td>
+          <td>{{ r.rainfall }}</td>
+          <td>{{ r.recorded_at }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <nav aria-label="Page navigation">
+    <ul class="pagination">
+      {% if page>1 %}<li class="page-item"><a class="page-link" href="?page={{page-1}}">Previous</a></li>{% endif %}
+      <li class="page-item active"><span class="page-link">{{page}}</span></li>
+      {% if more %}<li class="page-item"><a class="page-link" href="?page={{page+1}}">Next</a></li>{% endif %}
+    </ul>
+  </nav>
+{% endblock %}

@@ -1,6 +1,25 @@
-version: '3.8'
-
 services:
+  admin_service:
+    build: ./admin_service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8001:8001'
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL","curl -sf http://localhost:8001/health || exit 1"]
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    restart: always
+
   postgres:
     image: postgres:15
     restart: unless-stopped
@@ -13,7 +32,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gs_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gs_user} -d ${POSTGRES_DB:-gramsight_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,7 +61,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./:/app:rw
+      - ./backend_service:/app/backend_service:rw
+      - ./alembic:/app/alembic:rw
+      - ./scripts:/app/scripts:rw
     ports:
       - "8000:8000"
     healthcheck:
@@ -59,7 +80,28 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/ > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "backend_service.worker.ingestion_worker"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
+    driver: local

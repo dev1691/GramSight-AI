@@ -211,16 +211,24 @@ def seed():
         log.info("✔ Weather data seeded (%d records)", len(DEMO_VILLAGES) * len(DEMO_WEATHER_DB_ORDER))
 
         # ── 4. Market data (farmer weekly + admin monthly) ───────────────
+        # Price multipliers per crop (relative to Rice base ~2200)
+        CROP_PRICE_MULT = {'Rice': 1.0, 'Wheat': 0.95, 'Sugarcane': 0.35, 'Mango': 2.5, 'Soybean': 0.9,
+                          'Jowar': 0.85, 'Strawberry': 4.0, 'Cotton': 1.2}
         for vname, vid in village_ids.items():
             session.query(MarketPrice).filter(MarketPrice.village_id == vid).delete()
+            v_data = next((v for v in DEMO_VILLAGES if v['name'] == vname), {})
+            commodity = v_data.get('crop', 'Rice')
+            mult = CROP_PRICE_MULT.get(commodity, 1.0)
+            base_prices = [round(p * mult) for p in DEMO_MARKET_FARMER_DB_ORDER]
+            admin_prices = [round(p * mult) for p in [x[1] for x in DEMO_MARKET_ADMIN_MONTHLY]]
 
             # Farmer weekly records (5 most recent days)
-            for i, price in enumerate(DEMO_MARKET_FARMER_DB_ORDER):
+            for i, price in enumerate(base_prices):
                 created = now - timedelta(days=i)
                 mp = MarketPrice(
                     id=demo_uuid(f"market:farmer:{vname}:{i}"),
                     village_id=vid,
-                    commodity='Rice',
+                    commodity=commodity,
                     variety='Common',
                     modal_price=price,
                     min_price=round(price * 0.85),
@@ -232,11 +240,12 @@ def seed():
                 session.add(mp)
 
             # Admin monthly records (5 months for admin trend)
-            for j, (month_dt, price) in enumerate(DEMO_MARKET_ADMIN_MONTHLY):
+            for j, (month_dt, _) in enumerate(DEMO_MARKET_ADMIN_MONTHLY):
+                price = admin_prices[j] if j < len(admin_prices) else base_prices[0]
                 mp = MarketPrice(
                     id=demo_uuid(f"market:admin:{vname}:{j}"),
                     village_id=vid,
-                    commodity='Rice',
+                    commodity=commodity,
                     variety='Common',
                     modal_price=price,
                     min_price=round(price * 0.88),
@@ -246,6 +255,24 @@ def seed():
                     created_at=month_dt,
                 )
                 session.add(mp)
+
+            # Add Rice for all villages (so "Rice" has data everywhere)
+            for i, price in enumerate(DEMO_MARKET_FARMER_DB_ORDER):
+                if commodity != 'Rice':
+                    created = now - timedelta(days=i + 10)  # offset to not overlap
+                    mp = MarketPrice(
+                        id=demo_uuid(f"market:rice:{vname}:{i}"),
+                        village_id=vid,
+                        commodity='Rice',
+                        variety='Common',
+                        modal_price=price,
+                        min_price=round(price * 0.85),
+                        max_price=round(price * 1.15),
+                        market_name=f"{vname} Mandi",
+                        arrival_date=created,
+                        created_at=created,
+                    )
+                    session.add(mp)
         session.commit()
         total_market = len(DEMO_VILLAGES) * (len(DEMO_MARKET_FARMER_DB_ORDER) + len(DEMO_MARKET_ADMIN_MONTHLY))
         log.info("✔ Market data seeded (%d records)", total_market)

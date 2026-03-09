@@ -31,6 +31,11 @@ const DEMO_VILLAGES = [
   { id: 8, name: 'Wai', district: 'Satara', score: 34, crop: 'Strawberry' },
 ];
 
+const DEFAULT_CROPS = [
+  'Rice', 'Wheat', 'Sugarcane', 'Cotton', 'Soybean', 'Jowar',
+  'Bajra', 'Maize', 'Mango', 'Onion', 'Tomato', 'Groundnut', 'Paddy',
+];
+
 const DEMO_MARKET_ADMIN = {
   labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
   prices: [2100, 2200, 2150, 2300, 2250, 2400],
@@ -247,9 +252,18 @@ export default function AdminDashboard() {
 
     if (cropsRes.status === 'fulfilled') {
       const crops = cropsRes.value.data?.crops;
-      setAvailableCrops(Array.isArray(crops) ? crops : []);
+      const apiCrops = Array.isArray(crops) ? crops : [];
+      const seen = new Set(apiCrops.map((c) => String(c).toLowerCase()));
+      const merged = [...apiCrops];
+      for (const c of DEFAULT_CROPS) {
+        if (!seen.has(c.toLowerCase())) {
+          merged.push(c);
+          seen.add(c.toLowerCase());
+        }
+      }
+      setAvailableCrops(merged.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
     } else {
-      setAvailableCrops([]);
+      setAvailableCrops([...DEFAULT_CROPS]);
     }
 
     setLoading(false);

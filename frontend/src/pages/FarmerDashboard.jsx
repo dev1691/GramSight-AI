@@ -29,6 +29,12 @@ const FALLBACK_MARKET = {
   crop: 'Rice',
 };
 
+// Default crop list — always shown so users can select any crop
+const DEFAULT_CROPS = [
+  'Rice', 'Wheat', 'Sugarcane', 'Cotton', 'Soybean', 'Jowar',
+  'Bajra', 'Maize', 'Mango', 'Onion', 'Tomato', 'Groundnut', 'Paddy',
+];
+
 function generateWeatherFromApi(apiData) {
   const history = apiData?.history;
   if (Array.isArray(history) && history.length >= 2) {
@@ -161,9 +167,19 @@ export default function FarmerDashboard() {
 
     if (cropsRes.status === 'fulfilled') {
       const crops = cropsRes.value.data?.crops;
-      setAvailableCrops(Array.isArray(crops) ? crops : []);
+      const apiCrops = Array.isArray(crops) ? crops : [];
+      // Merge with defaults so all crops are always listed
+      const seen = new Set(apiCrops.map((c) => String(c).toLowerCase()));
+      const merged = [...apiCrops];
+      for (const c of DEFAULT_CROPS) {
+        if (!seen.has(c.toLowerCase())) {
+          merged.push(c);
+          seen.add(c.toLowerCase());
+        }
+      }
+      setAvailableCrops(merged.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
     } else {
-      setAvailableCrops([]);
+      setAvailableCrops([...DEFAULT_CROPS]);
     }
 
     setLoading(false);

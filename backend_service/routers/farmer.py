@@ -114,14 +114,21 @@ def village_weather(
     }
 
 
-# ── Available crops for a village (distinct commodities in DB) ───
+# Default crop list — always shown so users can select any crop
+DEFAULT_CROPS = [
+    "Rice", "Wheat", "Sugarcane", "Cotton", "Soybean", "Jowar",
+    "Bajra", "Maize", "Mango", "Onion", "Tomato", "Groundnut", "Paddy",
+]
+
+
+# ── Available crops for a village (distinct commodities in DB + default list) ───
 @router.get("/{village_id}/crops")
 def village_crops(
     village_id: UUID,
     db: Session = Depends(get_db),
     _user=Depends(get_current_active_user),
 ):
-    """List distinct commodities (crops) with market data for the village."""
+    """List crops: DB commodities for village, merged with default list so all options are available."""
     rows = (
         db.query(MarketPrice.commodity)
         .filter(MarketPrice.village_id == village_id)
@@ -130,22 +137,15 @@ def village_crops(
         .order_by(MarketPrice.commodity)
         .all()
     )
-    crops = [r[0] for r in rows if r[0]]
-    if not crops:
-        rows = (
-            db.query(MarketPrice.commodity)
-            .filter(MarketPrice.commodity.isnot(None))
-            .distinct()
-            .order_by(MarketPrice.commodity)
-            .limit(50)
-            .all()
-        )
-        crops = [r[0] for r in rows if r[0]]
-    if not crops:
-        crops = [
-            "Rice", "Wheat", "Sugarcane", "Cotton", "Soybean", "Jowar",
-            "Bajra", "Maize", "Mango", "Onion", "Tomato", "Groundnut", "Paddy",
-        ]
+    db_crops = [r[0] for r in rows if r[0]]
+    db_lower = {c.lower() for c in db_crops}
+    # Merge: DB crops first, then defaults not already in DB
+    crops = list(db_crops)
+    for c in DEFAULT_CROPS:
+        if c.lower() not in db_lower:
+            crops.append(c)
+            db_lower.add(c.lower())
+    crops = sorted(crops, key=lambda x: x.lower())
     return {"crops": crops}
 
 

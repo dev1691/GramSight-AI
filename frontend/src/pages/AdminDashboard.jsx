@@ -233,7 +233,16 @@ export default function AdminDashboard() {
 
     if (marketRes.status === 'fulfilled') {
       const mt = marketRes.value.data;
-      if (mt && Array.isArray(mt.labels) && mt.labels.length > 0) setMarketTrendData(mt);
+      if (mt && Array.isArray(mt.labels)) {
+        setMarketTrendData({
+          ...mt,
+          crop: mt.crop || (selectedCrop ? `${selectedCrop} (District Avg)` : 'Rice (District Avg)'),
+        });
+      } else {
+        setMarketTrendData(null);
+      }
+    } else {
+      setMarketTrendData(null);
     }
 
     if (riskRes.status === 'fulfilled') {
@@ -319,22 +328,6 @@ export default function AdminDashboard() {
         </Box>
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
           <Chip label="Pune District" variant="outlined" size="small" sx={{ fontWeight: 600 }} />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="admin-crop-select-label">Market Crop</InputLabel>
-            <Select
-              labelId="admin-crop-select-label"
-              value={selectedCrop}
-              label="Market Crop"
-              onChange={(e) => setSelectedCrop(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>All crops</em>
-              </MenuItem>
-              {availableCrops.map((c) => (
-                <MenuItem key={c} value={c}>{c}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
           <Tooltip title="Refresh data">
             <IconButton
               onClick={fetchData}
@@ -513,7 +506,31 @@ export default function AdminDashboard() {
               <RiskTrendChart data={riskTrendData || undefined} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <MarketChart data={marketTrendData || DEMO_MARKET_ADMIN} />
+              <MarketChart
+                data={
+                  marketTrendData
+                    ? { ...marketTrendData, crop: marketTrendData.crop || selectedCrop || 'Rice' }
+                    : { ...DEMO_MARKET_ADMIN, crop: selectedCrop ? `${selectedCrop} (District Avg)` : 'Rice (District Avg)' }
+                }
+                cropSelector={
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel id="admin-crop-select-label">Crop</InputLabel>
+                    <Select
+                      labelId="admin-crop-select-label"
+                      value={selectedCrop}
+                      label="Crop"
+                      onChange={(e) => setSelectedCrop(e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>All crops</em>
+                      </MenuItem>
+                      {availableCrops.map((c) => (
+                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                }
+              />
             </Grid>
           </Grid>
         </>

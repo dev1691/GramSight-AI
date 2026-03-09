@@ -9,7 +9,7 @@ const DEMO_MARKET = {
   crop: 'Rice',
 };
 
-export default function MarketChart({ data = DEMO_MARKET }) {
+export default function MarketChart({ data = DEMO_MARKET, cropSelector }) {
   const prices = data.prices || DEMO_MARKET.prices;
   const crop = data.crop || 'Rice';
   const change = prices.length >= 2
@@ -64,12 +64,14 @@ export default function MarketChart({ data = DEMO_MARKET }) {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TrendingUpIcon sx={{ color: '#1B5E20' }} />
             <Typography variant="h6">Market Price — {crop}</Typography>
           </Box>
-          <Chip
+          <Stack direction="row" spacing={1} alignItems="center">
+            {cropSelector}
+            <Chip
             label={`${change >= 0 ? '+' : ''}${change}%`}
             size="small"
             sx={{
@@ -78,6 +80,7 @@ export default function MarketChart({ data = DEMO_MARKET }) {
               fontWeight: 700,
             }}
           />
+          </Stack>
         </Stack>
         <Box sx={{ height: 280 }}>
           <Bar data={chartData} options={options} />

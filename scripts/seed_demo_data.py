@@ -212,8 +212,11 @@ def seed():
 
         # ── 4. Market data (farmer weekly + admin monthly) ───────────────
         # Price multipliers per crop (relative to Rice base ~2200)
-        CROP_PRICE_MULT = {'Rice': 1.0, 'Wheat': 0.95, 'Sugarcane': 0.35, 'Mango': 2.5, 'Soybean': 0.9,
-                          'Jowar': 0.85, 'Strawberry': 4.0, 'Cotton': 1.2}
+        CROP_PRICE_MULT = {
+            'Rice': 1.0, 'Wheat': 0.95, 'Sugarcane': 0.35, 'Mango': 2.5, 'Soybean': 0.9,
+            'Jowar': 0.85, 'Strawberry': 4.0, 'Cotton': 1.2, 'Bajra': 0.8, 'Maize': 0.9,
+            'Onion': 1.1, 'Tomato': 1.3, 'Groundnut': 1.4, 'Paddy': 1.0,
+        }
         for vname, vid in village_ids.items():
             session.query(MarketPrice).filter(MarketPrice.village_id == vid).delete()
             v_data = next((v for v in DEMO_VILLAGES if v['name'] == vname), {})
@@ -264,6 +267,29 @@ def seed():
                         id=demo_uuid(f"market:rice:{vname}:{i}"),
                         village_id=vid,
                         commodity='Rice',
+                        variety='Common',
+                        modal_price=price,
+                        min_price=round(price * 0.85),
+                        max_price=round(price * 1.15),
+                        market_name=f"{vname} Mandi",
+                        arrival_date=created,
+                        created_at=created,
+                    )
+                    session.add(mp)
+
+            # Add extra crops so all dropdown options have data (backend fallback finds them)
+            EXTRA_CROPS = ['Bajra', 'Cotton', 'Maize', 'Onion', 'Tomato', 'Groundnut', 'Paddy']
+            for ec in EXTRA_CROPS:
+                if ec == commodity or ec == 'Rice':
+                    continue
+                mult = CROP_PRICE_MULT.get(ec, 1.0)
+                base_p = [round(p * mult) for p in DEMO_MARKET_FARMER_DB_ORDER]
+                for i, price in enumerate(base_p):
+                    created = now - timedelta(days=i + 20 + (sum(ord(c) for c in ec) % 7))  # unique offset
+                    mp = MarketPrice(
+                        id=demo_uuid(f"market:extra:{vname}:{ec}:{i}"),
+                        village_id=vid,
+                        commodity=ec,
                         variety='Common',
                         modal_price=price,
                         min_price=round(price * 0.85),

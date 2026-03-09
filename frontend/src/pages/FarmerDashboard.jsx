@@ -58,9 +58,12 @@ function generateWeatherFromApi(apiData) {
   };
 }
 
-function generateMarketFromApi(apiData) {
+function generateMarketFromApi(apiData, selectedCrop = '') {
   const markets = apiData?.markets;
-  if (!markets || markets.length === 0) return FALLBACK_MARKET;
+  const fallbackCrop = selectedCrop || 'Crop';
+  if (!markets || markets.length === 0) {
+    return { ...FALLBACK_MARKET, crop: fallbackCrop };
+  }
   if (markets.length >= 2) {
     const recent = markets.slice(0, 5);
     return {
@@ -144,9 +147,9 @@ export default function FarmerDashboard() {
     }
 
     if (marketRes.status === 'fulfilled') {
-      setMarketData(generateMarketFromApi(marketRes.value.data));
+      setMarketData(generateMarketFromApi(marketRes.value.data, crop));
     } else {
-      setMarketData(FALLBACK_MARKET);
+      setMarketData({ ...FALLBACK_MARKET, crop: crop || 'Crop' });
     }
 
     if (soilRes.status === 'fulfilled') {

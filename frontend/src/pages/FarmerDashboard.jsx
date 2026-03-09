@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Box, Grid, Typography, Skeleton, Stack, IconButton, Tooltip } from '@mui/material';
+import {
+  Box, Grid, Typography, Skeleton, Stack, IconButton, Tooltip,
+  FormControl, InputLabel, Select, MenuItem,
+} from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import api from '../services/api';
 import VillageSelector from '../components/VillageSelector';
@@ -80,6 +83,8 @@ function generateMarketFromApi(apiData) {
 export default function FarmerDashboard() {
   const [villages, setVillages] = useState([]);
   const [villageId, setVillageId] = useState('');
+  const [availableCrops, setAvailableCrops] = useState([]);
+  const [selectedCrop, setSelectedCrop] = useState('');
   const [riskScore, setRiskScore] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [marketData, setMarketData] = useState(null);
@@ -101,19 +106,23 @@ export default function FarmerDashboard() {
       .catch(() => { /* VillageSelector falls back to its built-in demo list */ });
   }, []);
 
-  const fetchAll = useCallback(async (vid) => {
+  const fetchAll = useCallback(async (vid, crop = '') => {
     const id = ++fetchRef.current;
     setLoading(true);
+    const marketUrl = crop
+      ? `/farmer/${vid}/market?commodity=${encodeURIComponent(crop)}`
+      : `/farmer/${vid}/market`;
     const results = await Promise.allSettled([
       api.get(`/farmer/${vid}/risk`),
       api.get(`/farmer/${vid}/weather`),
-      api.get(`/farmer/${vid}/market`),
+      api.get(marketUrl),
       api.get(`/farmer/${vid}/soil`),
       api.get(`/farmer/${vid}/advisory`),
+      api.get(`/farmer/${vid}/crops`),
     ]);
     if (fetchRef.current !== id) return; // stale request
 
-    const [riskRes, weatherRes, marketRes, soilRes, advisoryRes] = results;
+    const [riskRes, weatherRes, marketRes, soilRes, advisoryRes, cropsRes] = results;
 
     if (riskRes.status === 'fulfilled') {
       const r = riskRes.value.data;
@@ -150,15 +159,27 @@ export default function FarmerDashboard() {
       setAdvisoryItems(null);
     }
 
+    if (cropsRes.status === 'fulfilled') {
+      const crops = cropsRes.value.data?.crops;
+      setAvailableCrops(Array.isArray(crops) ? crops : []);
+    } else {
+      setAvailableCrops([]);
+    }
+
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    if (villageId) fetchAll(villageId);
-  }, [villageId, fetchAll]);
+    if (villageId) fetchAll(villageId, selectedCrop);
+  }, [villageId, selectedCrop, fetchAll]);
 
   const handleVillageChange = (id) => {
     setVillageId(id);
+    setSelectedCrop('');
+  };
+
+  const handleCropChange = (crop) => {
+    setSelectedCrop(crop);
   };
 
   return (
@@ -179,15 +200,31 @@ export default function FarmerDashboard() {
             Real-time risk assessment and agricultural insights
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
           <VillageSelector
             value={villageId}
             onChange={handleVillageChange}
             villages={villages.length > 0 ? villages : undefined}
           />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="crop-select-label">Crop</InputLabel>
+            <Select
+              labelId="crop-select-label"
+              value={selectedCrop}
+              label="Crop"
+              onChange={(e) => handleCropChange(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All crops</em>
+              </MenuItem>
+              {availableCrops.map((c) => (
+                <MenuItem key={c} value={c}>{c}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <Tooltip title="Refresh data">
             <IconButton
-              onClick={() => fetchAll(villageId)}
+              onClick={() => fetchAll(villageId, selectedCrop)}
               size="small"
               sx={{ bgcolor: 'rgba(0,0,0,0.04)', '&:hover': { bgcolor: 'rgba(0,0,0,0.08)' } }}
             >
@@ -267,7 +304,7 @@ export default function FarmerDashboard() {
           {/* Soil Health */}
           <Grid container spacing={2.5}>
             <Grid item xs={12} md={6}>
-              <SoilHealthCard data={soilData || undefined} />
+              <SoilHealthCard data={soilData} loading={loading} />
             </Grid>
           </Grid>
         </>

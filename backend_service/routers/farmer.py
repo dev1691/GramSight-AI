@@ -114,28 +114,65 @@ def village_weather(
     }
 
 
+# ── Available crops for a village (distinct commodities in DB) ───
+@router.get("/{village_id}/crops")
+def village_crops(
+    village_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_active_user),
+):
+    """List distinct commodities (crops) with market data for the village."""
+    rows = (
+        db.query(MarketPrice.commodity)
+        .filter(MarketPrice.village_id == village_id)
+        .filter(MarketPrice.commodity.isnot(None))
+        .distinct()
+        .order_by(MarketPrice.commodity)
+        .all()
+    )
+    crops = [r[0] for r in rows if r[0]]
+    if not crops:
+        rows = (
+            db.query(MarketPrice.commodity)
+            .filter(MarketPrice.commodity.isnot(None))
+            .distinct()
+            .order_by(MarketPrice.commodity)
+            .limit(50)
+            .all()
+        )
+        crops = [r[0] for r in rows if r[0]]
+    if not crops:
+        crops = [
+            "Rice", "Wheat", "Sugarcane", "Cotton", "Soybean", "Jowar",
+            "Bajra", "Maize", "Mango", "Onion", "Tomato", "Groundnut", "Paddy",
+        ]
+    return {"crops": crops}
+
+
 # ── Market for a village ───────────────────────────────────────
 @router.get("/{village_id}/market")
 def village_market(
     village_id: UUID,
     limit: int = Query(default=10, le=50),
+    commodity: str | None = Query(default=None, description="Filter by crop/commodity name"),
     db: Session = Depends(get_db),
     _user=Depends(get_current_active_user),
 ):
-    rows = (
+    q = (
         db.query(MarketPrice)
         .filter(MarketPrice.village_id == village_id)
         .order_by(desc(MarketPrice.created_at))
-        .limit(limit)
-        .all()
     )
+    if commodity and commodity.strip():
+        q = q.filter(func.lower(MarketPrice.commodity) == commodity.strip().lower())
+    rows = q.limit(limit).all()
+
     if not rows:
-        rows = (
-            db.query(MarketPrice)
-            .order_by(desc(MarketPrice.created_at))
-            .limit(limit)
-            .all()
-        )
+        q = db.query(MarketPrice).order_by(desc(MarketPrice.created_at))
+        if commodity and commodity.strip():
+            q = q.filter(func.lower(MarketPrice.commodity) == commodity.strip().lower())
+        rows = q.limit(limit).all()
+
     markets = [
         {
             "commodity": r.commodity,

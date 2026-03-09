@@ -61,19 +61,12 @@ def admin_villages(
     return result
 
 
-# Default crop list — always shown so users can select any crop
-DEFAULT_CROPS = [
-    'Rice', 'Wheat', 'Sugarcane', 'Cotton', 'Soybean', 'Jowar',
-    'Bajra', 'Maize', 'Mango', 'Onion', 'Tomato', 'Groundnut', 'Paddy',
-]
-
-
 @router.get('/admin/crops')
 def admin_crops(
     db: Session = Depends(get_db),
     _user=Depends(require_role(RoleEnum.admin)),
 ):
-    """List crops: DB commodities merged with default list so all options are available."""
+    """List crops that have market data in the DB. No static fallback — only DB data."""
     rows = (
         db.query(MarketPrice.commodity)
         .filter(MarketPrice.commodity.isnot(None))
@@ -82,14 +75,7 @@ def admin_crops(
         .limit(50)
         .all()
     )
-    db_crops = [r[0] for r in rows if r[0]]
-    db_lower = {c.lower() for c in db_crops}
-    crops = list(db_crops)
-    for c in DEFAULT_CROPS:
-        if c.lower() not in db_lower:
-            crops.append(c)
-            db_lower.add(c.lower())
-    crops = sorted(crops, key=lambda x: x.lower())
+    crops = sorted([r[0] for r in rows if r[0]], key=lambda x: x.lower())
     return {'crops': crops}
 
 

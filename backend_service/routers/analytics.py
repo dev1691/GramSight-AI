@@ -61,15 +61,33 @@ def admin_villages(
     return result
 
 
+@router.get('/admin/crops')
+def admin_crops(
+    db: Session = Depends(get_db),
+    _user=Depends(require_role(RoleEnum.admin)),
+):
+    """List crops that have market data in the DB. No static fallback — only DB data."""
+    rows = (
+        db.query(MarketPrice.commodity)
+        .filter(MarketPrice.commodity.isnot(None))
+        .distinct()
+        .order_by(MarketPrice.commodity)
+        .limit(50)
+        .all()
+    )
+    crops = sorted([r[0] for r in rows if r[0]], key=lambda x: x.lower())
+    return {'crops': crops}
+
+
 @router.get('/admin/market-trend')
 def admin_market_trend(
     db: Session = Depends(get_db),
     _user=Depends(require_role(RoleEnum.admin)),
     limit: int = Query(default=6, le=24),
+    commodity: str | None = Query(default=None, description='Filter by crop/commodity name'),
 ):
     """Aggregated market prices over recent months for admin chart."""
-    from sqlalchemy import extract
-    rows = (
+    q = (
         db.query(
             func.date_trunc('month', MarketPrice.created_at).label('month'),
             func.avg(MarketPrice.modal_price).label('avg_price'),
@@ -77,12 +95,15 @@ def admin_market_trend(
         .group_by('month')
         .order_by(desc('month'))
         .limit(limit)
-        .all()
     )
+    if commodity and commodity.strip():
+        q = q.filter(func.lower(MarketPrice.commodity) == commodity.strip().lower())
+    rows = q.all()
     rows = list(reversed(rows))
     labels = [r[0].strftime('%b') if r[0] else '?' for r in rows]
     prices = [round(float(r[1])) if r[1] else 0 for r in rows]
-    return {'labels': labels, 'prices': prices, 'crop': 'Avg All Commodities'}
+    crop_label = (commodity or 'Avg All Commodities').strip() or 'Avg All Commodities'
+    return {'labels': labels, 'prices': prices, 'crop': crop_label}
 
 
 @router.get('/admin/risk-trend')

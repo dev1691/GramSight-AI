@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Grid, Typography, Skeleton, Stack, IconButton, Tooltip, Chip,
-  Card, CardContent, LinearProgress, Divider, Button, CircularProgress,
+  Card, CardContent, LinearProgress, Divider, CircularProgress,
+  FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LocationCityIcon from '@mui/icons-material/LocationCity';
@@ -186,19 +187,25 @@ export default function AdminDashboard() {
   const [farmlandSummary, setFarmlandSummary] = useState(null);
   const [aiInsight, setAiInsight] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [availableCrops, setAvailableCrops] = useState([]);
+  const [selectedCrop, setSelectedCrop] = useState('');
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    const marketUrl = selectedCrop
+      ? `/admin/market-trend?commodity=${encodeURIComponent(selectedCrop)}`
+      : '/admin/market-trend';
     const results = await Promise.allSettled([
       api.get('/admin/villages'),
-      api.get('/admin/market-trend'),
+      api.get(marketUrl),
       api.get('/admin/risk-trend'),
       api.get('/admin/stats'),
       api.get('/farmland/admin/summary'),
+      api.get('/admin/crops'),
     ]);
 
-    const [villagesRes, marketRes, riskRes, statsRes, farmlandRes] = results;
+    const [villagesRes, marketRes, riskRes, statsRes, farmlandRes, cropsRes] = results;
 
     // Villages
     if (villagesRes.status === 'fulfilled') {
@@ -221,7 +228,16 @@ export default function AdminDashboard() {
 
     if (marketRes.status === 'fulfilled') {
       const mt = marketRes.value.data;
-      if (mt && Array.isArray(mt.labels) && mt.labels.length > 0) setMarketTrendData(mt);
+      if (mt && Array.isArray(mt.labels)) {
+        setMarketTrendData({
+          ...mt,
+          crop: mt.crop || (selectedCrop ? `${selectedCrop} (District Avg)` : 'Rice (District Avg)'),
+        });
+      } else {
+        setMarketTrendData(null);
+      }
+    } else {
+      setMarketTrendData(null);
     }
 
     if (riskRes.status === 'fulfilled') {
@@ -238,8 +254,15 @@ export default function AdminDashboard() {
       setFarmlandSummary(farmlandRes.value.data);
     }
 
+    if (cropsRes.status === 'fulfilled') {
+      const crops = cropsRes.value.data?.crops;
+      setAvailableCrops(Array.isArray(crops) ? crops : []);
+    } else {
+      setAvailableCrops([]);
+    }
+
     setLoading(false);
-  }, []);
+  }, [selectedCrop]);
 
   const fetchAiInsight = async (villageId) => {
     setAiLoading(true);
@@ -289,7 +312,7 @@ export default function AdminDashboard() {
             Multi-village risk monitoring and policy analytics
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
           <Chip label="Pune District" variant="outlined" size="small" sx={{ fontWeight: 600 }} />
           <Tooltip title="Refresh data">
             <IconButton
@@ -469,7 +492,31 @@ export default function AdminDashboard() {
               <RiskTrendChart data={riskTrendData || undefined} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <MarketChart data={marketTrendData || DEMO_MARKET_ADMIN} />
+              <MarketChart
+                data={
+                  marketTrendData
+                    ? { ...marketTrendData, crop: marketTrendData.crop || selectedCrop || 'Rice' }
+                    : { ...DEMO_MARKET_ADMIN, crop: selectedCrop ? `${selectedCrop} (District Avg)` : 'Rice (District Avg)' }
+                }
+                cropSelector={
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel id="admin-crop-select-label">Crop</InputLabel>
+                    <Select
+                      labelId="admin-crop-select-label"
+                      value={selectedCrop}
+                      label="Crop"
+                      onChange={(e) => setSelectedCrop(e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>All crops</em>
+                      </MenuItem>
+                      {availableCrops.map((c) => (
+                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                }
+              />
             </Grid>
           </Grid>
         </>

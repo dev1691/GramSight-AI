@@ -114,28 +114,50 @@ def village_weather(
     }
 
 
+# ── Available crops for a village (only crops with market data in DB) ───
+@router.get("/{village_id}/crops")
+def village_crops(
+    village_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_active_user),
+):
+    """List crops that have market data for this village. No static fallback — only DB data."""
+    rows = (
+        db.query(MarketPrice.commodity)
+        .filter(MarketPrice.village_id == village_id)
+        .filter(MarketPrice.commodity.isnot(None))
+        .distinct()
+        .order_by(MarketPrice.commodity)
+        .all()
+    )
+    crops = sorted([r[0] for r in rows if r[0]], key=lambda x: x.lower())
+    return {"crops": crops}
+
+
 # ── Market for a village ───────────────────────────────────────
 @router.get("/{village_id}/market")
 def village_market(
     village_id: UUID,
     limit: int = Query(default=10, le=50),
+    commodity: str | None = Query(default=None, description="Filter by crop/commodity name"),
     db: Session = Depends(get_db),
     _user=Depends(get_current_active_user),
 ):
-    rows = (
+    q = (
         db.query(MarketPrice)
         .filter(MarketPrice.village_id == village_id)
         .order_by(desc(MarketPrice.created_at))
-        .limit(limit)
-        .all()
     )
+    if commodity and commodity.strip():
+        q = q.filter(func.lower(MarketPrice.commodity) == commodity.strip().lower())
+    rows = q.limit(limit).all()
+
     if not rows:
-        rows = (
-            db.query(MarketPrice)
-            .order_by(desc(MarketPrice.created_at))
-            .limit(limit)
-            .all()
-        )
+        q = db.query(MarketPrice).order_by(desc(MarketPrice.created_at))
+        if commodity and commodity.strip():
+            q = q.filter(func.lower(MarketPrice.commodity) == commodity.strip().lower())
+        rows = q.limit(limit).all()
+
     markets = [
         {
             "commodity": r.commodity,
